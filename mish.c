@@ -12,73 +12,100 @@
 //
 ////////////////////////////////////////////////
 
+#define _GNU_SOURCE
+
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include <getopt.h>
 #include <string.h>
+#include <unistd.h>
+#include <stdbool.h>
 
 #define MAX_ERR_LENGTH 80
 #define MAX_TXT_LENGTH 600
+#define MAX_TOKENS 80;
 
-//////////////////////
+struct ParsingResult{
+	int numArgs;
+	char type;
+	char *strs[];
+};
+
+////////////////////////////////////////////////
 // parsing - start
-//////////////////////
-int main(int argc, char *argv[]) {
-	char ch;                   /* service variables */
-	int long_opt_index = 0;
-    int longval;
-    char *my_argument;
-    struct option long_options[] = {        /* long options array. Items are all caSe SensiTivE! */
-        { "add", 0, NULL, 'a'   },      /* --add or -a  */
-        { "back", 0, NULL, 'b'  },      /* --back or -b */
-        { "check", 0, &longval, 'c' },  /* return 'c', or return 0 and set longval to 'c' if "check" is parsed */
-        { "extra", 1, &longval, 'x' },
-        { 0,    0,    0,    0   }       /* terminating -0 item */
-    };
+////////////////////////////////////////////////
+void parseInput(char txtbuf[], struct ParsingResult *pr) 
+{
+	int token_num = 0;
 	
+	char *token = strtok(txtbuf, " ");
 	
-	while ((ch = getopt_long(argc, argv, "abchx:", long_options, &long_opt_index)) != -1) {
-	   switch (ch) {
-	       case 'a':   /* long_opt_index does not make sense for these */
-	           /* 'a' and '--add' are confused (aliased) */
-	           printf("Option a, or --add.\n");
-	           break;
-	       case 'b':
-    	       /* 'b' and '--back' are confused (aliased) */
-	           printf("Option b, or --back.\n");
-	           break;
-	       case 'c':
-	           /* 'c' and '--check' are distinguished, but handled the same way */
-	           printf("Option c, not --check.\n");
-	           break;
-	       case 'x':
-	           my_argument = optarg;
-	           printf("Option x, not --extra. Argument %s.\n", my_argument);
-	           break;
-	       case 0:     /* this is returned for long options with option[i].flag set (not NULL). */
-	                   /* the flag itself will point out the option recognized, and long_opt_index is now relevant */
-	           switch (longval) {
-	               case 'c':
-	                   /* '--check' is managed here */
-	                   printf("Option --check, not -c (Array index: %d).\n", long_opt_index);
-	                   break;
-	               case 'x':
-	                   /* '--extra' is managed here */
-	                   my_argument = optarg;
-	                   printf("Option --extra, not -x (Array index: %d). Argument: %s.\n", long_opt_index, my_argument);
-	                   break;
-	               /* there's no default here */
-	           }
-	           break;
-	       case 'h':   /* mind that h is not described in the long option list */
-	           printf("Usage: getopt-long [-a or --add] [-b or --back] [-c or --check] [-x or --extra]\n");
-	           break;
-	       default:
-	           printf("You, lamah!\n");
-	   }
+	while( token != NULL )
+	{
+		//printf( "from parse[%d] [%s]\n", token_num, token );
+		pr->strs[token_num] = token;
+		token = strtok(NULL, " ");
+		token_num++;
+	}
+	pr->numArgs = token_num;
+}
+////////////////////////////////////////////////
+// parsing - end
+////////////////////////////////////////////////
+
+////////////////////////////////////////////////
+// main - start
+////////////////////////////////////////////////
+int main(int argc, char *argv[]) 
+{
+	char txtbuf[MAX_TXT_LENGTH];
+	int current_number = 1; //starting number seems to be one
+	
+	int strf;
+	
+	int child_id;
+	
+	struct ParsingResult *pr = (struct ParsingResult*)malloc( sizeof(struct ParsingResult ) ); 
+	pr->numArgs = 0;
+	pr->type = (int)"x";
+	
+	while( true )
+	{
+		printf("mish[%d]> ", current_number);
+		//endless loop unless broken by a break
+		
+		if( fgets(txtbuf,MAX_TXT_LENGTH,stdin) == NULL ) {
+			break;
+		}
+
+		//
+		// Locate the newline character in the buffer,
+		// and replace it with a NUL character
+		//
+		strf = 0;
+		while( txtbuf[strf] != '\0' && txtbuf[strf] != '\n' ) {
+			++strf;
+		}
+
+		if( txtbuf[strf] == '\n' ) {
+			txtbuf[strf] = '\0';
+		}
+		
+		parseInput(txtbuf,pr);
+		current_number++;
+		/*int q = 0;
+		while(q < pr->numArgs)
+		{
+			printf( "from main[%d] [%s]\n",q,pr->strs[q]);
+			//printf( "from parse[%d] [%s]\n", token_num, token );
+			q++;
+		}*/
+
 	}
 	
-    return 0;
+	return 0;
 }
-//////////////////////
-// parsing - end
-//////////////////////
+////////////////////////////////////////////////
+// main - end
+////////////////////////////////////////////////
