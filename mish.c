@@ -25,35 +25,120 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 
+#include "mish.h"
+
 #define MAX_ERR_LENGTH 80
 #define MAX_TXT_LENGTH 600
 #define MAX_TOKENS 80
 #define HISTORY_MAX 10
 
-// Parsing result stores the content parsed out
-// of user input.
-//		numArgs keeps track of how many arguments
-//					were taken in
-//		type	it's an enum:
-//					0: nothing / empty
-//					1: internal command
-//					2: external command
-//					3: internal error
-//		display	for when type is 3
-//		strs	the parsed strings
-struct ParsingResult{
-	int numArgs;
-	int type;
-	char display[MAX_ERR_LENGTH];
-	char *strs[MAX_TOKENS];
-};
-// the history of the program
-//		hnum	containts the number of history entries
-//		hist	the actual entries
-struct History{
-	int hnum;
-	char *hist[HISTORY_MAX];
-};
+
+////////////////////////////////////////////////
+// main - start
+////////////////////////////////////////////////
+int main(int argc, char *argv[]) 
+{
+	
+	int verbose_on = 0; 
+	char txtbuf[MAX_TXT_LENGTH];
+	int current_number = 1; //starting number seems to be one
+	char copy[MAX_TXT_LENGTH];
+	int continue_loop = 1;
+	
+	struct ParsingResult *parres = (struct ParsingResult*)malloc( sizeof(struct ParsingResult ) ); 
+	parres->numArgs = 0;
+	parres->type = 0;
+	struct History *history = (struct History*)malloc( sizeof(struct History ) ); 
+	history->hnum = 0;
+	
+	while( continue_loop )
+	{
+		printf("mish[%d]> ", current_number);
+		if( fgets(txtbuf,MAX_TXT_LENGTH,stdin) == NULL ) {
+			break;
+		}
+		// Locate the newline character in the buffer,
+		// and replace it with a NUL character
+		int i = 0;
+		while( txtbuf[i] != '\0' && txtbuf[i] != '\n' ) {
+			i++;
+		}
+		if( txtbuf[i] == '\n' ) {
+			txtbuf[i] = '\0';
+		}
+		
+		//since txtbuf gets altered after this point, lets take the copy now
+		strcpy(copy,txtbuf);
+		
+		parseInput(txtbuf,parres);
+		
+		//originally located above with the rest, but due to the nature
+		//of the command it must be placed up here before it is it used
+		if(parres->type == 1 && strcmp(parres->strs[0],"verbose")==0)
+		{
+			verbose_on = (strcmp(parres->strs[1],"on")==0);
+		}
+		
+		if(verbose_on)
+		{//and so verbose said, "Let there be cake! -I mean info, let there be info"
+			printf("	command: %s\n\n	input command tokens:\n",copy);
+			int q = 0;
+			while(q < parres->numArgs)
+			{
+				printf( "	%d: %s\n",q,parres->strs[q]);
+				q++;
+			}
+			
+		}
+		if(parres->type != 0)//command entered, lets archive it
+		{
+			addToHistory(copy,history);
+		}
+		
+		//think of parres->type as an enum
+		if(parres->type == 1)//internal commands
+		{
+			if(strcmp(parres->strs[0],"help")==0)
+			{
+				showHelp();
+			}
+			else if(strcmp(parres->strs[0],"quit")==0)
+			{
+				continue_loop = 0;
+			}
+			else if(strcmp(parres->strs[0],"history")==0)
+			{
+				showHistory(history);
+			}
+			//else if(strcmp(parres->strs[0],"verbose")==0)
+			//{
+			//	//filtered everything out from the parse function,
+			//	//only on and off are possible
+			//	verbose_on = (strcmp(parres->strs[1],"on")==0);
+			//}
+			current_number++;
+		}
+		else if(parres->type == 3)
+		{
+			//an error has occurred in the internal functions,
+			//we must inform the masses
+			printf("%s\n",parres->display);
+		}
+		else if(parres->type == 2)
+		{	
+			externalCommands(parres,verbose_on);
+			current_number++;
+		}
+	}
+	
+	free(parres);
+	free(history);	
+	
+	return 0;
+}
+////////////////////////////////////////////////
+// main - end
+////////////////////////////////////////////////
 
 ////////////////////////////////////////////////
 // parsing - start
@@ -73,7 +158,7 @@ struct History{
 ////////////
 void parseInput(char txtbuf[], struct ParsingResult *parres) 
 {
-	int token_num = 0;	
+	int token_num = 0;
 	char *token = strtok(txtbuf, " ");
 	
 	while( token != NULL )
@@ -140,6 +225,7 @@ void parseInput(char txtbuf[], struct ParsingResult *parres)
 	{//just about everything else
 		parres->type = 2;
 	}
+	free(token);
 }
 ////////////////////////////////////////////////
 // parsing - end
@@ -320,108 +406,4 @@ void externalCommands(struct ParsingResult *parres,int verbose_on)
 }
 ////////////////////////////////////////////////
 // external - end
-////////////////////////////////////////////////
-
-////////////////////////////////////////////////
-// main - start
-////////////////////////////////////////////////
-int main(int argc, char *argv[]) 
-{
-	
-	int verbose_on = 0; 
-	char txtbuf[MAX_TXT_LENGTH];
-	int current_number = 1; //starting number seems to be one
-	char copy[MAX_TXT_LENGTH];
-	int continue_loop = 1;
-	
-	struct ParsingResult *parres = (struct ParsingResult*)malloc( sizeof(struct ParsingResult ) ); 
-	parres->numArgs = 0;
-	parres->type = 0;
-	struct History *history = (struct History*)malloc( sizeof(struct History ) ); 
-	history->hnum = 0;
-	
-	while( continue_loop )
-	{
-		printf("mish[%d]> ", current_number);
-		if( fgets(txtbuf,MAX_TXT_LENGTH,stdin) == NULL ) {
-			break;
-		}
-		// Locate the newline character in the buffer,
-		// and replace it with a NUL character
-		int i = 0;
-		while( txtbuf[i] != '\0' && txtbuf[i] != '\n' ) {
-			i++;
-		}
-		if( txtbuf[i] == '\n' ) {
-			txtbuf[i] = '\0';
-		}
-		
-		//since txtbuf gets altered after this point, lets take the copy now
-		strcpy(copy,txtbuf);
-		
-		parseInput(txtbuf,parres);
-		
-		//originally located above with the rest, but due to the nature
-		//of the command it must be placed up here before it is it used
-		if(parres->type == 1 && strcmp(parres->strs[0],"verbose")==0)
-		{
-			verbose_on = (strcmp(parres->strs[1],"on")==0);
-		}
-		
-		if(verbose_on)
-		{//and so verbose said, "Let there be cake! -I mean info, let there be info"
-			printf("	command: %s\n\n	input command tokens:\n",copy);
-			int q = 0;
-			while(q < parres->numArgs)
-			{
-				printf( "	%d: %s\n",q,parres->strs[q]);
-				q++;
-			}
-			
-		}
-		if(parres->type != 0)//command entered, lets archive it
-		{
-			addToHistory(copy,history);
-		}
-		
-		//think of parres->type as an enum
-		if(parres->type == 1)//internal commands
-		{
-			if(strcmp(parres->strs[0],"help")==0)
-			{
-				showHelp();
-			}
-			else if(strcmp(parres->strs[0],"quit")==0)
-			{
-				continue_loop = 0;
-			}
-			else if(strcmp(parres->strs[0],"history")==0)
-			{
-				showHistory(history);
-			}
-			/*else if(strcmp(parres->strs[0],"verbose")==0)
-			{
-				//filtered everything out from the parse function,
-				//only on and off are possible
-				verbose_on = (strcmp(parres->strs[1],"on")==0);
-			}*/
-			current_number++;
-		}
-		else if(parres->type == 3)
-		{
-			//an error has occurred in the internal functions,
-			//we must inform the masses
-			printf("%s\n",parres->display);
-		}
-		else if(parres->type == 2)
-		{	
-			externalCommands(parres,verbose_on);
-			current_number++;
-		}
-	}
-	
-	return 0;
-}
-////////////////////////////////////////////////
-// main - end
 ////////////////////////////////////////////////
