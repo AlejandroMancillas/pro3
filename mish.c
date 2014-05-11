@@ -292,12 +292,13 @@ void externalCommands(struct ParsingResult *parres,int verbose_on)
 			line = strcat(line,"'");
 		}
 		
-		char *name[] = {
+		//previous bash command method
+		/*char *name[] = {
 			"/bin/bash",
 			"-c",
 			line,
 			NULL
-		};
+		};*/
 		if(verbose_on)//ex. 	execvp: ls
 			printf("	execvp: %s\n",parres->strs[0]);
 			
